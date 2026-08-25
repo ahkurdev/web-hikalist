@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import { discardLocalSession, isSessionForCurrentProject } from './lib/authGateway'
 import type { AuthGateway, AuthSession, Profile } from './lib/authGateway'
 import { normalizeAuthError, validateEmail, validatePassword, validateUsername } from './lib/authValidation'
 import { validateAvatar } from './lib/avatarValidation'
@@ -59,6 +60,12 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
     }
     if (desktopHandoff) {
       setScreen('connecting')
+      if (!isSessionForCurrentProject(nextSession)) {
+        setError('Sesi web ini dari server Hikalist yang berbeda. Silakan masuk kembali.')
+        setScreen('login')
+        return
+      }
+      await discardLocalSession()
       submitDesktopSession(desktopHandoff, {
         accessToken: nextSession.accessToken,
         refreshToken: nextSession.refreshToken,
@@ -73,6 +80,12 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
 
   useEffect(() => {
     let active = true
+    if (desktopHandoff) {
+      // Desktop handoff must always come from a fresh, explicit sign-in —
+      // never from a session silently restored from localStorage.
+      setScreen(initialScreen)
+      return
+    }
     gateway
       .currentSession()
       .then(async (currentSession) => {

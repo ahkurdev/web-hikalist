@@ -1,6 +1,24 @@
 import type { Session } from '@supabase/supabase-js'
 import { uploadToCloudinary } from './cloudinary'
-import { supabase } from './supabase'
+import { AUTH_STORAGE_KEY, SUPABASE_URL, supabase } from './supabase'
+
+export function isSessionForCurrentProject(session: { accessToken: string }): boolean {
+  try {
+    const parts = session.accessToken.split('.')
+    if (parts.length !== 3) return false
+    let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    payload += '='.repeat((4 - (payload.length % 4)) % 4)
+    const claims = JSON.parse(atob(payload)) as { iss?: unknown }
+    return typeof claims.iss === 'string' && claims.iss.startsWith(SUPABASE_URL)
+  } catch {
+    return false
+  }
+}
+
+export async function discardLocalSession(): Promise<void> {
+  await supabase.auth.stopAutoRefresh()
+  localStorage.removeItem(AUTH_STORAGE_KEY)
+}
 
 export interface AuthUser {
   id: string
