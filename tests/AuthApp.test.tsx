@@ -134,6 +134,14 @@ describe('AuthApp', () => {
     expect(screen.queryByText('Akun Hikalist')).toBeNull()
   })
 
+  it('shows a clear message when a reset link has expired or was used', async () => {
+    window.location.hash = '#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid'
+    render(<AuthApp gateway={createGateway()} search="" />)
+
+    expect(await screen.findByText(/Tautan reset sudah kedaluwarsa atau sudah dipakai/)).toBeTruthy()
+    expect(screen.queryByText('Atur ulang password')).toBeNull()
+  })
+
   it('shows field validation without calling Supabase', async () => {
     const gateway = createGateway()
     render(<AuthApp gateway={gateway} search="" />)

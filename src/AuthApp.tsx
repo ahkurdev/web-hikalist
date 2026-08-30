@@ -39,10 +39,16 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
   // type=recovery. Supabase stores the recovered session during client init, so
   // currentSession() will already return it — but we must surface the update
   // form instead of signing the user straight into their account.
-  const isRecoveryLink = useMemo(
-    () => new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type') === 'recovery',
+  const recoveryHash = useMemo(
+    () => new URLSearchParams(window.location.hash.replace(/^#/, '')),
     [],
   )
+  const isRecoveryLink = recoveryHash.get('type') === 'recovery'
+  // When a reset link is opened after it expired or was already used, Supabase
+  // redirects back with #error=access_denied&error_code=otp_expired. Surface a
+  // clear message and clear the hash so the user isn't stuck on a dead URL.
+  const recoveryError = recoveryHash.get('error')
+  const isRecoveryError = recoveryError === 'access_denied' || recoveryHash.get('error_code') === 'otp_expired'
 
   const [screen, setScreen] = useState<AuthScreen>(initialScreen)
   const [email, setEmail] = useState('')
@@ -104,6 +110,16 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
       // Desktop handoff must always come from a fresh, explicit sign-in —
       // never from a session silently restored from localStorage.
       setScreen(initialScreen)
+      return
+    }
+    if (isRecoveryError) {
+      // A reset link opened after expiry/use bounces back with an error hash.
+      // Tell the user clearly and drop the dead hash so a refresh is clean.
+      setError('Tautan reset sudah kedaluwarsa atau sudah dipakai. Minta link baru dari halaman "Lupa password?".')
+      setScreen('forgot')
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
       return
     }
     if (isRecoveryLink) {
