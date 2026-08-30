@@ -24,6 +24,9 @@ function createGateway(overrides: Partial<AuthGateway> = {}): AuthGateway {
     loadProfile: vi.fn().mockResolvedValue(profile),
     saveProfile: vi.fn().mockResolvedValue(profile),
     uploadAvatar: vi.fn().mockResolvedValue('https://example.com/avatar.webp'),
+    requestPasswordReset: vi.fn().mockResolvedValue(undefined),
+    updatePassword: vi.fn().mockResolvedValue(undefined),
+    onAuthEvent: vi.fn(() => () => {}),
     ...overrides,
   }
 }
@@ -73,10 +76,45 @@ describe('AuthApp', () => {
     expect(screen.queryByText('Kode OTP')).toBeNull()
   })
 
-  it('does not expose self-service password recovery', async () => {
+  it('exposes self-service password recovery from the login form', async () => {
     render(<AuthApp gateway={createGateway()} search="" />)
 
-    expect(screen.queryByRole('button', { name: 'Lupa password?' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Lupa password?' }))
+
+    expect(await screen.findByText('Lupa password?')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Kirim tautan reset' })).toBeTruthy()
+  })
+
+  it('sends a reset link when the recovery email is submitted', async () => {
+    const gateway = createGateway()
+    render(<AuthApp gateway={gateway} search="" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lupa password?' }))
+    fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'allan@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Kirim tautan reset' }))
+
+    expect(await screen.findByText(/Kami sudah mengirim tautan/)).toBeTruthy()
+    expect(gateway.requestPasswordReset).toHaveBeenCalledWith('allan@example.com')
+  })
+
+  it('updates the password after a PASSWORD_RECOVERY auth event', async () => {
+    let handler: ((event: string) => void) | null = null
+    const gateway = createGateway({
+      onAuthEvent: vi.fn((cb: (event: string) => void) => {
+        handler = cb
+        return () => {}
+      }),
+    })
+    render(<AuthApp gateway={gateway} search="" />)
+
+    expect(handler).not.toBeNull()
+    handler!('PASSWORD_RECOVERY')
+
+    fireEvent.change(await screen.findByLabelText('Password baru'), { target: { value: 'newpassword123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Perbarui password' }))
+
+    expect(await screen.findByText('Password berhasil diperbarui. Silakan masuk dengan password baru.')).toBeTruthy()
+    expect(gateway.updatePassword).toHaveBeenCalledWith('newpassword123')
   })
 
   it('shows field validation without calling Supabase', async () => {

@@ -17,6 +17,8 @@ type AuthScreen =
   | 'account'
   | 'connecting'
   | 'invite'
+  | 'forgot'
+  | 'recovery'
 
 interface AuthAppProps {
   gateway: AuthGateway
@@ -43,6 +45,7 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
 
   async function finishAuthentication(nextSession: AuthSession, knownProfile?: Profile) {
     setSession(nextSession)
@@ -80,6 +83,10 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
 
   useEffect(() => {
     let active = true
+    const stopListening = gateway.onAuthEvent((event) => {
+      if (!active) return
+      if (event === 'PASSWORD_RECOVERY') setScreen('recovery')
+    })
     if (desktopHandoff) {
       // Desktop handoff must always come from a fresh, explicit sign-in —
       // never from a session silently restored from localStorage.
@@ -98,6 +105,7 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
       })
     return () => {
       active = false
+      stopListening()
     }
     // This initialization intentionally runs only for the provided gateway and URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,6 +219,37 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
     })
   }
 
+  function submitForgot(event: FormEvent) {
+    event.preventDefault()
+    resetFeedback()
+    const validatedEmail = validateEmail(email)
+    if (validatedEmail.error) {
+      setError(validatedEmail.error)
+      return
+    }
+    setEmail(validatedEmail.value)
+    void run(async () => {
+      await gateway.requestPasswordReset(validatedEmail.value)
+      setMessage('Cek email Anda. Kami sudah mengirim tautan untuk mengatur ulang password.')
+    })
+  }
+
+  function submitRecovery(event: FormEvent) {
+    event.preventDefault()
+    resetFeedback()
+    const passwordError = validatePassword(newPassword)
+    if (passwordError) {
+      setError(passwordError)
+      return
+    }
+    void run(async () => {
+      await gateway.updatePassword(newPassword)
+      setNewPassword('')
+      setMessage('Password berhasil diperbarui. Silakan masuk dengan password baru.')
+      setScreen('login')
+    })
+  }
+
   const feedback = (
     <>
       {error && <div className="feedback feedback-error" role="alert">{error}</div>}
@@ -266,6 +305,39 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
   }
 
   const isRegister = screen === 'register'
+  const isForgot = screen === 'forgot'
+  const isRecovery = screen === 'recovery'
+  if (isForgot) {
+    return (
+      <AuthFrame eyebrow="RESET PASSWORD" title="Lupa password?">
+        <p className="form-copy">Masukkan email akun Anda dan kami akan mengirim tautan untuk mengatur ulang password.</p>
+        <form className="auth-form" noValidate onSubmit={submitForgot}>
+          <Field label="Email" value={email} onChange={setEmail} type="email" autoComplete="email" />
+          {feedback}
+          <button className="primary-button" disabled={loading} type="submit">
+            {loading ? 'Mohon tunggu…' : 'Kirim tautan reset'}
+          </button>
+          <button className="text-button" disabled={loading} onClick={() => setScreen('login')} type="button">
+            Kembali ke masuk
+          </button>
+        </form>
+      </AuthFrame>
+    )
+  }
+  if (isRecovery) {
+    return (
+      <AuthFrame eyebrow="RESET PASSWORD" title="Atur ulang password">
+        <p className="form-copy">Buat password baru untuk akun Anda.</p>
+        <form className="auth-form" noValidate onSubmit={submitRecovery}>
+          <Field label="Password baru" value={newPassword} onChange={setNewPassword} type="password" autoComplete="new-password" />
+          {feedback}
+          <button className="primary-button" disabled={loading} type="submit">
+            {loading ? 'Mohon tunggu…' : 'Perbarui password'}
+          </button>
+        </form>
+      </AuthFrame>
+    )
+  }
   return (
     <AuthFrame
       eyebrow={inviteToken ? 'PLAYLIST INVITE' : isRegister ? 'CREATE ACCOUNT' : 'WELCOME BACK'}
@@ -284,6 +356,11 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
         <button className="primary-button" disabled={loading} type="submit">
           {loading ? 'Mohon tunggu…' : isRegister ? 'Buat akun' : 'Masuk'}
         </button>
+        {!isRegister && (
+          <button className="text-button" disabled={loading} onClick={() => setScreen('forgot')} type="button">
+            Lupa password?
+          </button>
+        )}
       </form>
     </AuthFrame>
   )

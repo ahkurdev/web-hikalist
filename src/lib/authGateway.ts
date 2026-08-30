@@ -49,6 +49,9 @@ export interface AuthGateway {
   loadProfile(session: AuthSession): Promise<Profile>
   saveProfile(session: AuthSession, username: string, avatarUrl: string | null): Promise<Profile>
   uploadAvatar(session: AuthSession, file: File): Promise<string>
+  requestPasswordReset(email: string): Promise<void>
+  updatePassword(newPassword: string): Promise<void>
+  onAuthEvent(handler: (event: string) => void): () => void
 }
 
 function requireSession(session: Session | null): AuthSession {
@@ -136,6 +139,23 @@ export function createSupabaseAuthGateway(): AuthGateway {
 
     async uploadAvatar(session, file) {
       return uploadToCloudinary(file, `hikalist/avatars/${session.user.id}`)
+    },
+
+    async requestPasswordReset(email) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/`,
+      })
+      if (error) throw error
+    },
+
+    async updatePassword(newPassword) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+    },
+
+    onAuthEvent(handler) {
+      const { data } = supabase.auth.onAuthStateChange((event) => handler(event))
+      return () => data.subscription.unsubscribe()
     },
   }
 }
