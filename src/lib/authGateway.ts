@@ -143,7 +143,10 @@ export function createSupabaseAuthGateway(): AuthGateway {
 
     async requestPasswordReset(email) {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/`,
+        // Always land on the production reset handler, never a dev origin like
+        // localhost:5173 — Supabase only honors redirectTo URLs present in the
+        // project's Site URL / Redirect URLs allowlist.
+        redirectTo: 'https://hikalist.ahkur.my.id/',
       })
       if (error) throw error
     },
