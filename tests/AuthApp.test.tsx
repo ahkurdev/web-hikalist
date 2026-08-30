@@ -12,7 +12,10 @@ const SESSION: AuthSession = {
   user: { id: 'user-1', email: 'allan@example.com' },
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  window.location.hash = ''
+})
 
 function createGateway(overrides: Partial<AuthGateway> = {}): AuthGateway {
   const profile: Profile = { username: 'Allan', avatarUrl: null }
@@ -115,6 +118,20 @@ describe('AuthApp', () => {
 
     expect(await screen.findByText('Password berhasil diperbarui. Silakan masuk dengan password baru.')).toBeTruthy()
     expect(gateway.updatePassword).toHaveBeenCalledWith('newpassword123')
+  })
+
+  it('opens the recovery screen (not account) when arriving from a reset link', async () => {
+    // Simulate the hash a real reset link leaves behind BEFORE the component
+    // evaluates its useMemo for isRecoveryLink.
+    window.location.hash = '#access_token=abc&type=recovery'
+    const gateway = createGateway({
+      currentSession: vi.fn().mockResolvedValue({ accessToken: 't', refreshToken: 'r', user: { id: 'u', email: 'allan@example.com' } }),
+    })
+    render(<AuthApp gateway={gateway} search="" />)
+
+    expect(await screen.findByText('Atur ulang password')).toBeTruthy()
+    expect(gateway.loadProfile).not.toHaveBeenCalled()
+    expect(screen.queryByText('Akun Hikalist')).toBeNull()
   })
 
   it('shows field validation without calling Supabase', async () => {

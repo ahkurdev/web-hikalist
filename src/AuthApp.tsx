@@ -35,6 +35,15 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
       ? 'register'
       : 'login'
 
+  // A password-reset link delivers its token through the URL hash with
+  // type=recovery. Supabase stores the recovered session during client init, so
+  // currentSession() will already return it — but we must surface the update
+  // form instead of signing the user straight into their account.
+  const isRecoveryLink = useMemo(
+    () => new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type') === 'recovery',
+    [],
+  )
+
   const [screen, setScreen] = useState<AuthScreen>(initialScreen)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -83,9 +92,13 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
 
   useEffect(() => {
     let active = true
+    let recovered = false
     const stopListening = gateway.onAuthEvent((event) => {
       if (!active) return
-      if (event === 'PASSWORD_RECOVERY') setScreen('recovery')
+      if (event === 'PASSWORD_RECOVERY') {
+        recovered = true
+        setScreen('recovery')
+      }
     })
     if (desktopHandoff) {
       // Desktop handoff must always come from a fresh, explicit sign-in —
@@ -93,10 +106,16 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
       setScreen(initialScreen)
       return
     }
+    if (isRecoveryLink) {
+      // The reset token already established a recovery session; show the update
+      // form instead of treating it as a normal sign-in.
+      setScreen('recovery')
+      return
+    }
     gateway
       .currentSession()
       .then(async (currentSession) => {
-        if (active && currentSession) await finishAuthentication(currentSession)
+        if (active && currentSession && !recovered) await finishAuthentication(currentSession)
       })
       .catch((cause) => {
         if (!active) return
@@ -109,7 +128,7 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
     }
     // This initialization intentionally runs only for the provided gateway and URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway, search])
+  }, [gateway, search, isRecoveryLink])
 
   function resetFeedback() {
     setError(null)
@@ -245,6 +264,11 @@ export function AuthApp({ gateway, inviteGateway = supabasePlaylistInviteGateway
     void run(async () => {
       await gateway.updatePassword(newPassword)
       setNewPassword('')
+      // Drop the recovery token from the URL so a refresh won't re-enter the
+      // recovery screen with a now-expired session.
+      if (window.location.hash.includes('type=recovery')) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
       setMessage('Password berhasil diperbarui. Silakan masuk dengan password baru.')
       setScreen('login')
     })
