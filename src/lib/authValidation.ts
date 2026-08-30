@@ -34,13 +34,16 @@ export function normalizeAuthError(message: string): string {
   if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
     return 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.'
   }
-  if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
-    return 'Koneksi bermasalah. Periksa internet lalu coba lagi.'
-  }
   if (normalizedMessage.includes('invite link') && (
     normalizedMessage.includes('expired') || normalizedMessage.includes('invalid')
   )) {
     return 'Link undangan tidak valid atau sudah kedaluwarsa.'
+  }
+  if (normalizedMessage.includes('expired') || normalizedMessage.includes('token') || normalizedMessage.includes('recovery') || normalizedMessage.includes('422')) {
+    return 'Tautan reset sudah kedaluwarsa atau sudah dipakai. Minta link baru dari halaman "Lupa password?".'
+  }
+  if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
+    return 'Koneksi bermasalah. Periksa internet lalu coba lagi.'
   }
   return 'Terjadi kesalahan. Silakan coba lagi.'
 }
