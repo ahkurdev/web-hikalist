@@ -1,10 +1,12 @@
 node_modules/
 dist/
 .vercel/
-.env
-.env.*
-!.env.example
 *.log
 
-.vercel
-.env*
+# Local env files (never commit real secrets)
+.env
+.env.local
+.env.*.local
+
+# Keep the template so contributors know the required variables
+!.env.example
