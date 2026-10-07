@@ -11,7 +11,7 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'none'; img-src 'self' data: https://*.supabase.co https://res.cloudinary.com; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://api.cloudinary.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' http://127.0.0.1:*"
+          "value": "default-src 'none'; img-src 'self' data: https://menfessdarmajaya.my.id https://*.ahkur.my.id https://*.supabase.co https://res.cloudinary.com; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://menfessdarmajaya.my.id https://*.ahkur.my.id https://*.supabase.co https://api.cloudinary.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' http://127.0.0.1:*"
         },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
